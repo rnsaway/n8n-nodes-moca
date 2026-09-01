@@ -1,9 +1,6 @@
 import type {
-	ICredentialsDecrypted,
-	ICredentialTestFunctions,
 	IDataObject,
 	IExecuteFunctions,
-	INodeCredentialTestResult,
 	INodeExecutionData,
 	INodeType,
 	INodeTypeDescription,
@@ -12,15 +9,9 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
 import { mocaFields, mocaOperations } from './MocaDescription';
 import type { MocaCredentials } from './transport';
-import { MOCA_CONTENT_TYPE, MocaConnection, buildLoginQuery, createConnection } from './transport';
+import { MocaConnection, createConnection } from './transport';
 import type { MocaResponse, MocaValue } from './transport/protocol';
-import {
-	MOCA_STATUS,
-	buildMocaRequest,
-	convertNumericColumns,
-	parseMocaResponse,
-	withPublishedData,
-} from './transport/protocol';
+import { MOCA_STATUS, convertNumericColumns, withPublishedData } from './transport/protocol';
 
 interface ArgumentEntry {
 	name?: string;
@@ -101,59 +92,16 @@ export class Moca implements INodeType {
 			{
 				name: 'mocaApi',
 				required: true,
-				testedBy: 'mocaApiTest',
 			},
 		],
 		properties: [...mocaOperations, ...mocaFields],
 	};
 
-	methods = {
-		credentialTest: {
-			async mocaApiTest(
-				this: ICredentialTestFunctions,
-				credential: ICredentialsDecrypted,
-			): Promise<INodeCredentialTestResult> {
-				const credentials = credential.data as unknown as MocaCredentials | undefined;
-
-				if (credentials?.url === undefined || credentials.url.trim() === '') {
-					return { status: 'Error', message: 'No MOCA service URL is configured' };
-				}
-
-				const body = buildMocaRequest({
-					query: buildLoginQuery(credentials.username, credentials.password),
-					environment: { USR_ID: credentials.username },
-					autocommit: false,
-				});
-
-				try {
-					// `request` is the only HTTP helper exposed on ICredentialTestFunctions.
-					// eslint-disable-next-line @n8n/community-nodes/no-deprecated-workflow-functions
-					const raw = await this.helpers.request({
-						method: 'POST',
-						uri: credentials.url,
-						headers: { 'Content-Type': MOCA_CONTENT_TYPE, Accept: MOCA_CONTENT_TYPE },
-						body,
-						json: false,
-						rejectUnauthorized: credentials.ignoreSslIssues !== true,
-						timeout: credentials.timeout ?? 300000,
-					});
-
-					const response = parseMocaResponse(String(raw ?? ''));
-					if (response.status === MOCA_STATUS.OK) {
-						return { status: 'OK', message: 'Connection successful' };
-					}
-
-					return {
-						status: 'Error',
-						message:
-							response.message ?? `MOCA rejected the login with status ${response.status}`,
-					};
-				} catch (error) {
-					return { status: 'Error', message: (error as Error).message };
-				}
-			},
-		},
-	};
+	// The credential test lives on the credential itself, as `MocaApi.test`. A
+	// programmatic `credentialTest` handler would have to call `helpers.request`,
+	// the only HTTP helper `ICredentialTestFunctions` exposes and one that verified
+	// community nodes may not use. For a login that reports MOCA's own error message,
+	// use the node's Test Connection operation.
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();

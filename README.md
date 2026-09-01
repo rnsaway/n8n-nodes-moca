@@ -56,7 +56,11 @@ Create a **MOCA API** credential:
 | Reuse Session | no | Reuse a MOCA session across executions instead of logging in every time. On by default. |
 | Session Max Age (Minutes) | no | How long a cached session may be reused. `0` reuses it until the server rejects it. Defaults to 30. |
 
-Use the credential's **Test** button to verify the connection: the node performs a real `login user` call and reports the MOCA error message if it fails.
+The credential's **Test** button posts a real `login user` to the service URL, so it catches a
+wrong address, an unreachable host and a certificate the instance will not accept. It cannot tell
+a wrong password from a right one: MOCA answers a rejected login with HTTP 200 and reports the
+failure inside the response document. To check the credentials themselves, run the node's
+**Test Connection** operation, which reads that status and shows MOCA's own message.
 
 Warehouse, Device and Locale are sent with every command and can be read back inside one as
 [`@@` globals](#credential-values-in-a-command).
