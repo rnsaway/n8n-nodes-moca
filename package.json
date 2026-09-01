@@ -1,0 +1,70 @@
+{
+	"name": "n8n-nodes-moca",
+	"version": "0.2.5",
+	"description": "n8n community node to connect to a MOCA server (Blue Yonder / RedPrairie WMS) and run MOCA syntax commands and native (local) SQL",
+	"license": "MIT",
+	"homepage": "https://github.com/rnsaway/n8n-nodes-moca#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/rnsaway/n8n-nodes-moca.git"
+	},
+	"bugs": {
+		"url": "https://github.com/rnsaway/n8n-nodes-moca/issues"
+	},
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"moca",
+		"blue-yonder",
+		"redprairie",
+		"jda",
+		"wms",
+		"warehouse"
+	],
+	"author": {
+		"name": "MOCA Community Node",
+		"email": "noreply@example.com"
+	},
+	"engines": {
+		"node": ">=20.19"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"test": "vitest run",
+		"verify": "node scripts/verify-package.js",
+		"preversion": "npm run build && npm run lint && npm test && npm run verify",
+		"postversion": "git push origin main --follow-tags",
+		"release": "npm version patch",
+		"release:minor": "npm version minor",
+		"release:major": "npm version major",
+		"prepublishOnly": "npm run build && npm test && npm run verify && n8n-node prerelease",
+		"live-check": "node scripts/live-check.js"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/MocaApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Moca/Moca.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "^0.44.2",
+		"eslint": "9.39.4",
+		"prettier": "3.8.3",
+		"release-it": "20.2.0",
+		"typescript": "5.9.3",
+		"vitest": "^3.2.4"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}

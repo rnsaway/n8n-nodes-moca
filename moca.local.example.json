@@ -1,0 +1,7 @@
+{
+	"url": "https://moca.example.com:4700/service",
+	"username": "SUPER",
+	"password": "",
+	"warehouse": "WMD1",
+	"ignoreSslIssues": true
+}

@@ -1,0 +1,160 @@
+# Publishes n8n-nodes-moca to npm on every version tag push.
+#
+#   git tag 0.1.0 && git push origin 0.1.0
+#
+# Authentication picks itself, based on whether an NPM_TOKEN secret exists:
+#
+#   secret set      token auth. Use a granular access token with bypass 2FA
+#                   enabled, and the package's publishing access must permit
+#                   tokens. npm is deprecating this path - see
+#                   https://gh.io/npm-gat-bypass2fa-deprecation
+#   secret absent   OIDC trusted publishing. Nothing to rotate. Configure it on
+#                   npmjs.com under Publish access -> Trusted Publishers, naming
+#                   this repository and `publish.yml`.
+#
+# The two are mutually exclusive, and npm's preference is the OPPOSITE of what
+# you might expect: when a trusted publisher is configured and the Actions OIDC
+# environment is present, npm mints an OIDC token and uses it INSTEAD of the one
+# in .npmrc ("verbose oidc Successfully retrieved and set token"). That is what
+# broke token publishing here the moment the trusted publisher was created - the
+# NPM_TOKEN was silently never used again. So in token mode the publish step
+# clears the Actions OIDC environment variables, forcing npm back onto the
+# configured token. The auth file is also written only when a token actually
+# exists - an absent secret must not produce an empty `_authToken=` line, which
+# is refused exactly like a wrong one.
+#
+# Trusted Publishing does NOT require a public repository - it is only
+# authentication. Provenance is the part that needs one; see below.
+#
+# ─── PROVENANCE ───────────────────────────────────────────────────────────────
+#
+# Since 1 May 2026 n8n requires community nodes to carry an npm provenance
+# statement to be eligible for verification through the Creator Portal.
+# npm does not generate provenance for a private repository, even when the
+# package itself is public. That is a documented limitation rather than an
+# error: the publish still succeeds, the release just carries no attestation.
+# The publish step therefore enables provenance only when this repo is public.
+#
+# The `repository` field is present in package.json and matches this repo, so the
+# remaining requirement is that the repository itself is public. Provenance needs
+# OIDC, so it also needs the id-token environment left intact - see the note on the
+# publish step below.
+#
+# Note that publishing through Actions with provenance is not optional for n8n
+# verification: the Creator Portal rejects nodes published from a local machine.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      # Matches semantic version tags like 0.2.3, 1.0.0, 2.0.0-rc.1
+      - '*.*.*'
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Required to mint the OIDC token used for Trusted Publishing and provenance.
+      id-token: write
+      contents: read
+
+    env:
+      # Track if a legacy token exists so the script can smoothly fall back if needed.
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deliberately no `registry-url`. setup-node would write an npmrc holding
+      # a blank token variable, which npm rejects. Auth is handled dynamically below.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      # Token mode fallback. Only runs if an NPM_TOKEN secret actually exists.
+      - name: Configure npm auth
+        if: env.NPM_TOKEN != ''
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc
+
+      # OIDC trusted publishing requires modern npm versions.
+      - name: Use a recent npm
+        run: npm install -g npm@latest
+
+      # --ignore-scripts skips native builds of transitive dependencies not needed for publishing.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # Fails the release if the build emitted an incomplete or broken package.
+      - name: Verify package
+        run: npm run verify
+
+      - name: Check the tag matches package.json
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package.json version $VERSION" >&2
+            exit 1
+          fi
+          echo "Publishing version $VERSION"
+
+      # Clear logs for diagnostic readability.
+      - name: Report the publish mode
+        run: |
+          echo "npm $(npm --version)"
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            echo "Auth Mode: Legacy NPM_TOKEN Secret"
+          elif [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "Auth Mode: OIDC Trusted Publishing (Passwordless)"
+          else
+            echo "::error::No authentication method available. Ensure id-token: write permissions are set." >&2
+            exit 1
+          fi
+
+      - name: Publish
+        # If a token is detected, we explicitly unset OIDC variables to keep npm from overriding it.
+        # If public, we append --provenance natively. If private, we omit it to prevent CLI validation crashes.
+        run: |
+          if [ -n "${NPM_TOKEN:-}" ]; then
+            unset ACTIONS_ID_TOKEN_REQUEST_URL
+            unset ACTIONS_ID_TOKEN_REQUEST_TOKEN
+          fi
+          
+          if [ "${IS_PUBLIC_REPO}" = "true" ]; then
+            npm publish --ignore-scripts --access public --provenance
+          else
+            npm publish --ignore-scripts --access public
+          fi
+        # Do NOT map ACTIONS_ID_TOKEN_REQUEST_URL / _TOKEN here. The runner injects
+        # them into the step process when `id-token: write` is granted, but they are
+        # not in the `env` expression context, so `${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}`
+        # evaluates to an empty string and SHADOWS the real values - in every mode, not
+        # just token mode. That is what produced "oidc Skipped because incorrect
+        # permissions for id-token" on an OIDC-capable job. The `unset` above is enough
+        # for token mode, because it operates on the real process environment.
+        env:
+          IS_PUBLIC_REPO: ${{ github.event.repository.visibility == 'public' }}
+
+      # Captures and prints execution data only if the registry pipeline fails.
+      - name: Show npm's log if the publish failed
+        if: failure()
+        run: |
+          for log in /home/runner/.npm/_logs/*-debug-0.log; do
+            [ -f "$log" ] || continue
+            echo "===== $log ====="
+            grep -viE 'authToken|_auth|password|bearer' "$log" | tail -120
+          done
