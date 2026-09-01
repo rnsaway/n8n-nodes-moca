@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-moca",
-	"version": "0.2.5",
+	"version": "0.2.6",
 	"description": "n8n community node to connect to a MOCA server (Blue Yonder / RedPrairie WMS) and run MOCA syntax commands and native (local) SQL",
 	"license": "MIT",
 	"homepage": "https://github.com/rnsaway/n8n-nodes-moca#readme",
