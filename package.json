@@ -22,8 +22,8 @@
 		"warehouse"
 	],
 	"author": {
-		"name": "MOCA Community Node",
-		"email": "noreply@example.com"
+		"name": "Nick Saway",
+		"email": "rnsaway@gmail.com"
 	},
 	"engines": {
 		"node": ">=20.19"
