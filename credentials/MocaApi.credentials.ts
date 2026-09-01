@@ -1,4 +1,24 @@
-import type { Icon, ICredentialType, INodeProperties } from 'n8n-workflow';
+import type {
+	Icon,
+	ICredentialTestRequest,
+	ICredentialType,
+	INodeProperties,
+} from 'n8n-workflow';
+
+/**
+ * `login user` as a MOCA XML request, built from the credential fields.
+ *
+ * Written as concatenated JavaScript so each fragment can be quoted with whichever
+ * quote character it does not itself contain: XML attributes hold double quotes, MOCA
+ * string literals hold single quotes. Single quotes inside a value are doubled, the
+ * same escaping `quoteMocaLiteral` performs in the transport.
+ */
+const LOGIN_TEST_BODY =
+	`={{ '<?xml version="1.0" encoding="UTF-8"?><moca-request autocommit="false">'` +
+	` + '<environment><var name="USR_ID" value="' + $credentials.username + '"/></environment>'` +
+	` + '<query>login user where usr_id = ' + "'" + $credentials.username.replace(/'/g, "''") + "'"` +
+	` + ' and usr_pswd = ' + "'" + $credentials.password.replace(/'/g, "''") + "'"` +
+	` + '</query></moca-request>' }}`;
 
 export class MocaApi implements ICredentialType {
 	name = 'mocaApi';
@@ -96,4 +116,30 @@ export class MocaApi implements ICredentialType {
 			displayOptions: { show: { reuseSession: [true] } },
 		},
 	];
+
+	/**
+	 * Declarative credential test: posts a real `login user` to the service URL.
+	 *
+	 * MOCA answers a rejected login with HTTP 200 and reports the failure inside the
+	 * document (`<status>1000</status>`, "User login is invalid."), and a rule of type
+	 * `responseSuccessBody` indexes into a parsed body, which an XML string is not. So
+	 * this confirms the URL is reachable and speaks MOCA; it cannot by itself tell a
+	 * wrong password from a right one.
+	 *
+	 * The authoritative check is the node's `mocaApiTest` handler, wired up through
+	 * `testedBy` on the Moca node, which parses the status and surfaces MOCA's own
+	 * message. n8n uses that one whenever the credential is tested from the node.
+	 */
+	test: ICredentialTestRequest = {
+		request: {
+			method: 'POST',
+			url: '={{$credentials.url}}',
+			skipSslCertificateValidation: '={{$credentials.ignoreSslIssues}}',
+			headers: {
+				'Content-Type': 'application/moca-xml',
+				Accept: 'application/moca-xml',
+			},
+			body: LOGIN_TEST_BODY,
+		},
+	};
 }
