@@ -86,7 +86,7 @@ export const mocaFields: INodeProperties[] = [
 				type: 'boolean',
 				default: true,
 				description:
-					'Whether the MOCA server commits the transaction when the command succeeds. Turning this off does not roll the transaction back, so a write can hold database locks until the session ends.',
+					'Whether the MOCA server commits the transaction when the command succeeds. Turning this off does not roll the transaction back: the server leaves it open on a pooled database connection, so any write keeps its locks until an unrelated later request reuses that connection and commits it. Leave this on unless the command commits or rolls back itself.',
 			},
 			{
 				displayName: 'Convert Numeric Columns',

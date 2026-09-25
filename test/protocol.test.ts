@@ -10,6 +10,7 @@ import {
 	withPublishedData,
 } from '../nodes/Moca/transport/protocol';
 import { parseXml } from '../nodes/Moca/transport/xml';
+import { MocaApi } from '../credentials/MocaApi.credentials';
 
 const node = { id: '1', name: 'MOCA', type: 'moca', typeVersion: 1, position: [0, 0] } as never;
 
@@ -250,6 +251,30 @@ describe('MocaConnection', () => {
 		const response = await connection.execute('list warehouses');
 		expect(response.status).toBe(MOCA_STATUS.OK);
 		expect(bodies.filter((entry) => entry.includes('login user'))).toHaveLength(2);
+	});
+
+	it('logs in with autocommit="true" so the login transaction is never left open', async () => {
+		const bodies: string[] = [];
+		const request = async (options: { body?: unknown }) => {
+			bodies.push(String(options.body));
+			return loginResponse;
+		};
+		const connection = new MocaConnection(request, node, {
+			url: 'https://moca.test/service',
+			username: 'SUPER',
+			password: 'secret',
+		});
+
+		await connection.login();
+
+		expect(bodies[0]).toContain('login user');
+		expect(bodies[0]).toContain('<moca-request autocommit="true">');
+	});
+
+	it('uses autocommit="true" in the credential test login', () => {
+		const body = String((new MocaApi().test as { request: { body: unknown } }).request.body);
+		expect(body).toContain('autocommit="true"');
+		expect(body).not.toContain('autocommit="false"');
 	});
 
 	it('fails with the server message when the login is rejected', async () => {

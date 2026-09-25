@@ -14,7 +14,7 @@ import type {
  * same escaping `quoteMocaLiteral` performs in the transport.
  */
 const LOGIN_TEST_BODY =
-	`={{ '<?xml version="1.0" encoding="UTF-8"?><moca-request autocommit="false">'` +
+	`={{ '<?xml version="1.0" encoding="UTF-8"?><moca-request autocommit="true">'` +
 	` + '<environment><var name="USR_ID" value="' + $credentials.username + '"/></environment>'` +
 	` + '<query>login user where usr_id = ' + "'" + $credentials.username.replace(/'/g, "''") + "'"` +
 	` + ' and usr_pswd = ' + "'" + $credentials.password.replace(/'/g, "''") + "'"` +

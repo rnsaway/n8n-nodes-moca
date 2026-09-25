@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Logins (including the credential **Test** button) are now sent with `autocommit="true"`.
+  With `autocommit="false"` the MOCA server neither commits nor rolls back, and leaves the
+  login transaction open on a pooled database connection until an unrelated request reuses it.
+- The **Autocommit** option description now says what turning it off actually does: an
+  uncommitted write keeps its locks on a pooled connection until a later, unrelated request
+  commits it.
+
 ## 0.2.5
 
 Initial release.
