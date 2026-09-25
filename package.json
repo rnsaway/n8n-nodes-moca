@@ -22,8 +22,9 @@
 		"warehouse"
 	],
 	"author": {
-		"name": "Nick Saway",
-		"email": "rnsaway@gmail.com"
+		"name": "Nicholas Saway",
+		"email": "31292184+rnsaway@users.noreply.github.com",
+		"url": "https://github.com/rnsaway"
 	},
 	"engines": {
 		"node": ">=20.19"
