@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.9
 
 - Logins (including the credential **Test** button) are now sent with `autocommit="true"`.
   With `autocommit="false"` the MOCA server neither commits nor rolls back, and leaves the
